@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # 服务地址
     HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8000"))
+    PORT: int = int(os.getenv("PORT", "38000"))
 
     # Milvus 配置
     MILVUS_HOST: str = os.getenv("MILVUS_HOST", "localhost")

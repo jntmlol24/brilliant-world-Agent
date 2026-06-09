@@ -39,6 +39,8 @@ class RedisClient:
                 decode_responses=True,
                 socket_connect_timeout=5,
                 socket_timeout=5,
+                # 强制 RESP2 协议，避免服务端不支持 HELLO 命令（如 Redis < 6、KeyDB 旧版等）
+                protocol=2,
             )
             await self._client.ping()
             logger.info(f"Redis 连接成功: {self.host}:{self.port}/{self.db}")

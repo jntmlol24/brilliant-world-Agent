@@ -6,11 +6,11 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
-      - "8000:8000"
+      - "38000:38000"
     environment:
       - DEBUG=False
       - HOST=0.0.0.0
-      - PORT=8000
+      - PORT=38000
       - MILVUS_HOST=milvus-standalone
       - MILVUS_PORT=19530
       - POSTGRES_HOST=postgres
