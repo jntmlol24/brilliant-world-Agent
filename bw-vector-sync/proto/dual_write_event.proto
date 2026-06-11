@@ -1,0 +1,40 @@
+syntax = "proto3";
+package bw.dualwrite.v1;
+
+import "google/protobuf/any.proto";
+
+// 双写事件（Java 侧 Outbox 投递 → Python 消费）
+// 单一事件承载 POST / USER 两类业务；通过 biz_type 区分
+message DualWriteEvent {
+  string biz_type = 1;          // "POST" | "USER"
+  string biz_id = 2;            // 业务主键（字符串形式以兼容 PG/VARCHAR）
+  int64 version = 3;            // 事件版本（用于消费者按版本合并）
+  int64 occurred_at = 4;        // 毫秒时间戳
+  string operation = 5;         // "UPSERT" | "DELETE"
+  google.protobuf.Any data = 6; // 业务数据载荷（PostData / UserData）
+  Vector vector = 7;            // 预计算向量（生产端完成）
+  map<string, string> headers = 8; // 透传的业务头（如 traceparent）
+}
+
+message Vector {
+  string model = 1;             // 嵌入模型名，如 "text-embedding-v3"
+  int32 dim = 2;
+  repeated float embedding = 3;
+}
+
+message PostData {
+  string post_id = 1;
+  string user_id = 2;
+  string title = 3;
+  string content = 4;
+  repeated string tags = 5;
+  int64 created_at = 6;
+}
+
+message UserData {
+  string user_id = 1;
+  string user_account = 2;
+  string user_name = 3;
+  string user_avatar = 4;
+  string user_profile = 5;
+}

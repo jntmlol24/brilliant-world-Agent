@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bw-vector-sync
+  namespace: brillian-world
+  labels:
+    app: bw-vector-sync
+    version: v3.0.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: bw-vector-sync
+  template:
+    metadata:
+      labels:
+        app: bw-vector-sync
+    spec:
+      containers:
+        - name: consumer
+          image: harbor.brillian-world.local/bw-vector-sync:3.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9100
+          env:
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bw-mq-secret
+                  key: rabbitmq-url
+            - name: MILVUS_HOST
+              value: milvus-cluster.bw-system.svc.cluster.local
+            - name: MILVUS_PORT
+              value: "19530"
+            - name: MILVUS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: bw-milvus-secret
+                  key: user
+            - name: MILVUS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bw-milvus-secret
+                  key: password
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bw-redis-secret
+                  key: url
+            - name: OTLP_ENABLED
+              value: "true"
+            - name: OTLP_ENDPOINT
+              value: http://otel-collector.observability.svc:4317
+            - name: LOG_LEVEL
+              value: INFO
+            - name: LOG_JSON
+              value: "true"
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet: { path: /health, port: health }
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /ready, port: health }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]   # 给 RabbitMQ 重连窗口
+      imagePullSecrets:
+        - name: harbor-registry
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: bw-vector-sync
+                topologyKey: kubernetes.io/hostname
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: bw-vector-sync
+  namespace: brillian-world
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: bw-vector-sync
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Pods
+      pods:
+        metric:
+          name: rabbitmq_queue_messages_ready
+        target:
+          type: AverageValue
+          averageValue: "1000"
